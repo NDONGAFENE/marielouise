@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MARIE LOUISE — Gestion de stock</title>
+<style>
+:root{
+  --grn:#6E1F2E; --grn2:#8A2A3C; --grn-d:#471119; --gold:#D4A017; --gold-d:#B8890C;
+  --bg:#F4F6F5; --card:#FFFFFF; --ink:#12241B; --muted:#6B8577; --line:#E4EAE6;
+  --red:#D64541; --blue:#2F80B4; --orange:#E08A2B; --ok:#2E9E5B;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Segoe UI",system-ui,-apple-system,Arial,sans-serif;background:var(--bg);color:var(--ink);}
+button{font-family:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit}
+.hidden{display:none!important}
+
+/* ===== OVERLAYS (login / licence) ===== */
+.overlay{position:fixed;inset:0;z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px;
+  background:radial-gradient(1100px 550px at 70% -10%,rgba(110,31,46,.35),transparent 60%),linear-gradient(160deg,#4a1420,#230a10);}
+.flagbar{height:6px;display:flex}.flagbar i{flex:1}.flagbar .v{background:#009a44}.flagbar .j{background:var(--gold)}.flagbar .b{background:#003399}
+.auth{background:#fff;border-radius:18px;max-width:430px;width:100%;padding:34px 30px;box-shadow:0 26px 70px rgba(0,0,0,.4)}
+.auth .logo{display:block;width:78px;height:78px;object-fit:contain;margin:0 auto 12px;border-radius:14px}
+.auth h1{text-align:center;font-size:20px;color:var(--grn);letter-spacing:.3px}
+.auth .sub{text-align:center;color:var(--muted);font-size:12px;margin:4px 0 18px}
+.auth label{display:block;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin:12px 0 6px}
+.auth input,.auth select{width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:10px;font-size:14px;outline:none}
+.auth input:focus,.auth select:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(212,160,23,.16)}
+.auth .btn{width:100%;margin-top:16px;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,var(--grn),var(--grn2));color:#fff;font-size:14px;font-weight:700}
+.auth .btn.gold{background:linear-gradient(135deg,var(--gold-d),var(--gold));color:#3a2c02}
+.auth .msg{padding:10px 12px;border-radius:9px;font-size:13px;margin-top:12px}
+.auth .msg.err{background:rgba(214,69,65,.1);color:#a4302c}
+.auth .msg.ok{background:rgba(46,158,91,.12);color:#1c6c3d}
+.auth .small{font-size:11px;color:var(--muted);text-align:center;margin-top:14px}
+.auth .state{text-align:center;padding:11px;border-radius:10px;font-weight:700;font-size:14px;margin-bottom:6px}
+.auth .state.okk{background:rgba(46,158,91,.12);color:#1c6c3d}.auth .state.kok{background:rgba(214,69,65,.1);color:#a4302c}
+.auth details{margin-top:8px}.auth summary{cursor:pointer;color:var(--muted);font-size:12px}
+.keybox{background:#f7faf8;border:1px dashed var(--gold);border-radius:9px;padding:12px;text-align:center;font-size:18px;letter-spacing:2px;color:var(--grn);margin-top:10px;font-family:monospace}
+.linklike{background:none;border:none;color:var(--grn);text-decoration:underline;font-size:12px;margin-top:12px;display:block;width:100%}
+
+/* ===== APP SHELL ===== */
+.app{display:flex;min-height:100vh}
+.side{width:236px;background:linear-gradient(180deg,var(--grn),var(--grn-d));color:#dfeee7;flex-shrink:0;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.side .bd{display:flex;align-items:center;gap:10px;padding:16px 16px;border-bottom:1px solid rgba(255,255,255,.1)}
+.side .bd img{width:40px;height:40px;border-radius:9px;object-fit:contain;background:#fff;padding:2px}
+.side .bd .t1{font-size:15px;font-weight:800;color:#fff;line-height:1}
+.side .bd .t2{font-size:9.5px;color:#a9cbb9;margin-top:3px}
+.nav{flex:1;overflow-y:auto;padding:8px}
+.nav a{display:flex;align-items:center;gap:10px;padding:10px 12px;color:#cfe4d8;text-decoration:none;border-radius:9px;font-size:13px;font-weight:600;margin-bottom:2px}
+.nav a .ic{width:20px;text-align:center}
+.nav a:hover{background:rgba(255,255,255,.07);color:#fff}
+.nav a.on{background:var(--gold);color:#3a2c02}
+.side .foot{padding:10px 14px;border-top:1px solid rgba(255,255,255,.1);font-size:10px;color:#a9cbb9}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.top{height:60px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 20px;gap:14px;position:sticky;top:0;z-index:20}
+.top .htitle{font-size:16px;font-weight:800}
+.top .right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.top .ubadge{background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:6px 10px;font-size:11px}
+.top .ubadge b{color:var(--grn)}
+.top .role{color:var(--gold-d);font-weight:700}
+.top .lo{padding:6px 10px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--red);font-size:11px;font-weight:600}
+.wrap{padding:22px;max-width:1180px;width:100%;margin:0 auto}
+.trial{background:rgba(212,160,23,.12);border:1px solid rgba(212,160,23,.35);color:#8a6a08;padding:8px 14px;border-radius:10px;font-size:12px;margin-bottom:14px;font-weight:600}
+
+/* ===== ELEMENTS ===== */
+.head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px}
+.head h1{font-size:20px}.head .s{font-size:12px;color:var(--muted);margin-top:2px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 4px 14px rgba(16,40,28,.05)}
+.card+.card{margin-top:16px}
+.ctitle{font-size:13px;font-weight:800;color:var(--grn);margin-bottom:14px;letter-spacing:.2px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:14px;padding:15px 16px;box-shadow:0 4px 14px rgba(16,40,28,.05);position:relative;overflow:hidden}
+.kpi::after{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--grn)}
+.kpi .n{font-size:25px;font-weight:800;line-height:1}
+.kpi .l{font-size:11px;color:var(--muted);margin-top:6px;text-transform:uppercase;letter-spacing:.3px}
+.kpi.g .n{color:var(--ok)}.kpi.j .n{color:var(--gold-d)}.kpi.r .n{color:var(--red)}.kpi.b .n{color:var(--blue)}.kpi.v .n{color:var(--grn)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:820px){.grid2{grid-template-columns:1fr}.side{width:64px}.side .bd .tx,.nav a .lbl,.side .foot{display:none}.nav a{justify-content:center}}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{text-align:left;padding:9px 11px;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--line)}
+td{padding:9px 11px;border-bottom:1px solid var(--line)}
+tr:hover td{background:#f7faf8}
+.badge{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700}
+.bg{background:rgba(46,158,91,.14);color:#1c6c3d}.br{background:rgba(214,69,65,.12);color:#a4302c}
+.bj{background:rgba(212,160,23,.16);color:#8a6a08}.bb{background:rgba(47,128,180,.12);color:#245e83}.bgy{background:#eef1ef;color:var(--muted)}
+.btn{padding:9px 15px;border:none;border-radius:9px;font-size:12.5px;font-weight:700;background:#eef1ef;color:var(--ink)}
+.btn:hover{filter:brightness(.97)}
+.btn.p{background:linear-gradient(135deg,var(--grn),var(--grn2));color:#fff}
+.btn.gold{background:linear-gradient(135deg,var(--gold-d),var(--gold));color:#3a2c02}
+.btn.dgr{background:rgba(214,69,65,.12);color:var(--red)}
+.btn.sm{padding:5px 9px;font-size:11px;border-radius:7px}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.fld{display:flex;flex-direction:column;gap:5px}.fld.full{grid-column:1/-1}
+.fld label{font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+.fld input,.fld select,.fld textarea{padding:9px 11px;border:1px solid var(--line);border-radius:9px;font-size:13px;outline:none;background:#fff}
+.fld input:focus,.fld select:focus,.fld textarea:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(212,160,23,.14)}
+.fld textarea{resize:vertical;min-height:60px}
+.search{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.search input,.search select{padding:9px 11px;border:1px solid var(--line);border-radius:9px;font-size:13px;background:#fff}
+.tag{background:#eef1ef;border:1px solid var(--line);border-radius:7px;padding:5px 10px;font-size:11px;display:inline-block}
+
+/* ===== MODAL ===== */
+.modal{position:fixed;inset:0;z-index:1500;background:rgba(8,20,14,.5);display:flex;align-items:flex-start;justify-content:center;padding:30px 16px;overflow:auto}
+.modal .box{background:#fff;border-radius:16px;max-width:760px;width:100%;box-shadow:0 30px 80px rgba(0,0,0,.4)}
+.modal .mh{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--line)}
+.modal .mh h3{font-size:16px;color:var(--grn)}
+.modal .mx{background:none;border:none;font-size:22px;color:var(--muted);line-height:1}
+.modal .mb{padding:20px}
+.modal .mf{padding:14px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--grn-d);color:#fff;padding:11px 18px;border-radius:10px;font-size:13px;z-index:3000;box-shadow:0 10px 30px rgba(0,0,0,.3);opacity:0;transition:opacity .2s}
+.toast.show{opacity:1}
+.pill{font-size:11px;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<!-- ===== LICENCE (verrou + activation + générateur) ===== -->
+<div id="ovLicence" class="overlay hidden">
+  <div style="max-width:430px;width:100%">
+    <div class="flagbar" style="border-radius:12px 12px 0 0"><i class="v"></i><i class="j"></i><i class="b"></i></div>
+    <div class="auth" style="border-radius:0 0 18px 18px">
+      <img class="logo" id="licLogo" alt="">
+      <h1>Licence du logiciel</h1>
+      <div class="sub">MARIE LOUISE — Pro-Technologie</div>
+      <div id="licState" class="state">—</div>
+      <div id="licKey" class="small"></div>
+      <label>Saisir une clé de licence</label>
+      <input id="licInput" placeholder="MRL-XXXX-XXXX-XXX" style="text-transform:uppercase;text-align:center;font-family:monospace">
+      <button class="btn gold" onclick="activerLicence()">Activer la licence</button>
+      <div id="licMsg"></div>
+      <details id="genDetails">
+        <summary>🛠 Générateur de clés (réservé)</summary>
+        <label>Mot de passe du générateur</label>
+        <input id="genPwd" type="password" placeholder="•••••••••">
+        <label>Type de licence</label>
+        <select id="genPlan">
+          <option value="E">Essai 30 jours</option>
+          <option value="D" selected>Durée (mois)</option>
+          <option value="I">Illimitée</option>
+        </select>
+        <label>Durée en mois (si « Durée »)</label>
+        <input id="genMois" type="number" value="12" min="1">
+        <button class="btn" style="width:100%;margin-top:12px;background:linear-gradient(135deg,var(--grn),var(--grn2));color:#fff" onclick="genererLicence()">Générer une clé</button>
+        <div id="genOut"></div>
+      </details>
+      <button id="licBack" class="linklike hidden" onclick="fermerLicence()">← Retour à l'application</button>
+      <div style="margin-top:16px;background:#faf5f6;border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center">
+        <div style="font-size:11px;font-weight:800;color:var(--grn);letter-spacing:.4px;text-transform:uppercase">Activation & assistance — Pro-Technologie</div>
+        <div style="font-size:14px;font-weight:800;margin-top:6px">📞 077 92 54 58 &nbsp;·&nbsp; 066 92 54 58</div>
+        <div style="font-size:12px;margin-top:4px"><a href="mailto:ndongafene@protechnologie.com" style="color:var(--grn);font-weight:700">ndongafene@protechnologie.com</a></div>
+        <div style="font-size:10.5px;color:var(--muted);margin-top:5px">Contactez-nous pour obtenir votre clé d'activation.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CONNEXION ===== -->
+<div id="ovLogin" class="overlay hidden">
+  <div style="max-width:430px;width:100%">
+    <div class="flagbar" style="border-radius:12px 12px 0 0"><i class="v"></i><i class="j"></i><i class="b"></i></div>
+    <div class="auth" style="border-radius:0 0 18px 18px">
+      <img class="logo" id="loginLogo" alt="">
+      <h1 id="loginNom">MARIE LOUISE</h1>
+      <div class="sub" id="loginSub">Gestion de stock</div>
+      <label>Identifiant</label>
+      <input id="loginUser" placeholder="Ex : admin" autofocus>
+      <label>Mot de passe</label>
+      <input id="loginPwd" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')faireLogin()">
+      <button class="btn" onclick="faireLogin()">Accéder au système</button>
+      <div id="loginMsg"></div>
+      <div class="small">© Pro-Technologie · Logiciel sous licence<br>📞 077 92 54 58 · 066 92 54 58 · <a href="mailto:ndongafene@protechnologie.com" style="color:var(--grn)">ndongafene@protechnologie.com</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== APPLICATION ===== -->
+<div id="app" class="app hidden">
+  <aside class="side">
+    <div class="bd"><img id="sideLogo" alt=""><div class="tx"><div class="t1">MARIE LOUISE</div><div class="t2" id="sideEtab">Entreprise</div></div></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="foot">MARIE LOUISE v1.0 · Pro-Technologie<br>📞 077 92 54 58<br>📞 066 92 54 58</div>
+  </aside>
+  <div class="main">
+    <div class="top">
+      <div class="htitle" id="pageTitle">Tableau de bord</div>
+      <div class="right">
+        <div class="ubadge"><b id="topUser">—</b> · <span class="role" id="topRole">—</span></div>
+        <button class="lo" onclick="logout()">Déconnexion</button>
+      </div>
+    </div>
+    <div class="wrap">
+      <div id="trialBanner" class="trial hidden"></div>
+      <div id="view"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODALE ===== -->
+<div id="modal" class="modal hidden">
+  <div class="box">
+    <div class="mh"><h3 id="modalTitle">Titre</h3><button class="mx" onclick="closeModal()">×</button></div>
+    <div class="mb" id="modalBody"></div>
+    <div class="mf"><button class="btn" onclick="closeModal()">Annuler</button><button class="btn p" id="modalOk">Valider</button></div>
+  </div>
+</div>
+<div id="toast" class="toast"></div>
+
+<script>
+/* ============ MARIE LOUISE — moteur ============ */
+const LOGO = ""; // logo par défaut = emoji dans l'UI si vide
+const LADMIN = "protechnologiedecedric";
+const LSECRET = "mes filles adorees";
+const PREFIX = "MRL-";
+const TRIAL = 30;
+const DBKEY = "mariel_db";
+
+const CATS_DEFAUT = ["Alimentaire","Boissons","Hygiène & entretien","Cosmétique","Papeterie","Électronique","Téléphonie","Textile","Quincaillerie","Pièces & accessoires","Autre"];
+const UNITES = ["pièce","carton","paquet","sac","kg","g","litre","bouteille","boîte","rouleau","mètre"];
+const ROLES = ["Directeur","Gestionnaire","Vendeur","Magasinier"];
+const MODULES = [
+  {id:"dashboard",label:"Tableau de bord",ic:"🏠"},
+  {id:"produits",label:"Produits",ic:"📦"},
+  {id:"entrees",label:"Entrées de stock",ic:"📥"},
+  {id:"ventes",label:"Ventes / Sorties",ic:"🛒"},
+  {id:"mouvements",label:"Mouvements",ic:"🔁"},
+  {id:"fournisseurs",label:"Fournisseurs",ic:"🚚"},
+  {id:"rapports",label:"Rapports",ic:"📊"},
+  {id:"users",label:"Utilisateurs",ic:"👥"},
+  {id:"params",label:"Paramètres",ic:"⚙️"},
+  {id:"licence",label:"Licence",ic:"🔑"},
+];
+const ACCESS = {
+  "Directeur":   MODULES.map(m=>m.id),
+  "Gestionnaire":["dashboard","produits","entrees","ventes","mouvements","fournisseurs","rapports"],
+  "Vendeur":     ["dashboard","produits","ventes"],
+  "Magasinier":  ["dashboard","produits","entrees","mouvements"],
+};
+
+/* ============ Base de données ============ */
+let DB, SESSION=null, CURRENT="dashboard";
+function seedDB(){
+  return {
+    etab:{nom:"", ville:"", tel:"", tel2:"", email:"", bp:"", devise:"F CFA", logo:"", cats:CATS_DEFAUT.slice()},
+    users:[{id:"u1", nom:"Administrateur", login:"admin", role:"Directeur", pwd:"admin"}],
+    produits:[], mouvements:[], ventes:[], fournisseurs:[],
+    license:{plan:"", key:"", exp:0, trialStart: today()},
+    seq:{produit:1, vente:1},
+  };
+}
+function loadDB(){
+  try{ DB=JSON.parse(localStorage.getItem(DBKEY)); }catch(e){ DB=null; }
+  if(!DB){ DB=seedDB(); saveDB(); }
+  if(!DB.license) DB.license={plan:"",key:"",exp:0,trialStart:today()};
+  if(!DB.etab.cats) DB.etab.cats=CATS_DEFAUT.slice();
+}
+function saveDB(){ localStorage.setItem(DBKEY, JSON.stringify(DB)); if(NET.on&&NET.token) netSchedulePush(); }
+
+/* ============ Licence (schéma Pro-Technologie) ============ */
+function today(){ return Math.floor(Date.now()/86400000); }
+function b36(n,len){ let s=Math.abs(Math.floor(n)).toString(36).toUpperCase(); while(s.length<len)s="0"+s; return s.slice(-len); }
+function _sum(str){ let h=0; for(let i=0;i<str.length;i++){ h=(h*31+str.charCodeAt(i))>>>0; } return h; }
+function makeKey(plan,days){
+  const exp = plan==="I" ? 0 : today()+days;
+  const inner = plan + b36(exp,4) + b36(Math.floor(Math.random()*1296),2);
+  const chk = b36(_sum(inner+LSECRET)%1679616,4);
+  const body = (inner+chk).toUpperCase();
+  return PREFIX + body.slice(0,4)+"-"+body.slice(4,8)+"-"+body.slice(8,11);
+}
+function parseKey(key){
+  try{
+    let k=(key||"").toUpperCase().trim();
+    if(k.startsWith(PREFIX)) k=k.slice(PREFIX.length);
+    const b=k.replace(/[^A-Z0-9]/g,"");
+    if(b.length!==11) return {valid:false};
+    const inner=b.slice(0,7), chk=b.slice(7,11);
+    if(b36(_sum(inner+LSECRET)%1679616,4)!==chk) return {valid:false};
+    const plan=inner[0];
+    if(!["E","D","I"].includes(plan)) return {valid:false};
+    const exp=parseInt(inner.slice(1,5),36);
+    return {valid:true,plan,exp};
+  }catch(e){ return {valid:false}; }
+}
+function licState(){
+  const L=DB.license;
+  if(L.plan==="I") return {ok:true, msg:"Licence illimitée"};
+  if(L.plan==="D"||L.plan==="E"){ const left=(L.exp||0)-today(); return {ok:left>=0, jours:left, msg: left>=0 ? ("Licence active — "+left+" jour(s) restant(s)") : "Licence expirée"}; }
+  const left=TRIAL-(today()-(L.trialStart||today()));
+  return {ok:left>=0, jours:left, essai:true, msg: left>=0 ? ("Période d'essai — "+left+" jour(s) restant(s)") : "Période d'essai terminée"};
+}
+function applyKey(key){
+  const r=parseKey(key); if(!r.valid) return false;
+  DB.license.plan=r.plan; DB.license.exp = r.plan==="I"?0:r.exp; DB.license.key=(key||"").toUpperCase().trim(); saveDB(); return true;
+}
+
+/* ============ Helpers ============ */
+const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
+const esc=s=>(s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid=p=>p+Math.random().toString(36).slice(2,9);
+const money=n=>(Math.round(+n||0)).toLocaleString("fr-FR")+" "+DB.etab.devise;
+const fdate=d=>{ if(!d)return "—"; try{return new Date(d).toLocaleDateString("fr-FR");}catch(e){return d;} };
+const fdt=d=>{ if(!d)return "—"; try{const x=new Date(d);return x.toLocaleDateString("fr-FR")+" "+x.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});}catch(e){return d;} };
+function toast(m){ const t=$("#toast"); t.textContent=m; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),2200); }
+function openModal(title,bodyHTML,okFn,okLabel){
+  $("#modalTitle").textContent=title; $("#modalBody").innerHTML=bodyHTML;
+  const ok=$("#modalOk"); ok.textContent=okLabel||"Valider"; ok.onclick=okFn;
+  ok.classList.toggle("hidden",!okFn); $("#modal").classList.remove("hidden");
+}
+function closeModal(){ $("#modal").classList.add("hidden"); }
+function val(id){ const e=document.getElementById(id); return e?e.value.trim():""; }
+function nextNum(prefix,seqKey){ const n=DB.seq[seqKey]||1; DB.seq[seqKey]=n+1; return prefix+"-"+new Date().getFullYear()+"-"+String(n).padStart(5,"0"); }
+const todayISO=()=>new Date().toISOString().slice(0,10);
+const nowISO=()=>new Date().toISOString();
+function sameMonth(d){ if(!d)return false; const a=new Date(d),n=new Date(); return a.getFullYear()===n.getFullYear()&&a.getMonth()===n.getMonth(); }
+function sameDay(d){ if(!d)return false; return String(d).slice(0,10)===todayISO(); }
+function prod(id){ return DB.produits.find(x=>x.id===id); }
+
+/* ============ MODE RÉSEAU ============ */
+let NET={on:false,url:"",token:"",version:0,timer:null,pushing:false};
+function netLoadCfg(){ try{ const c=JSON.parse(localStorage.getItem("mariel_net")||"{}"); NET.on=!!c.on; NET.url=(c.url||"").replace(/\/+$/,""); }catch(e){} }
+function netSaveCfg(){ localStorage.setItem("mariel_net", JSON.stringify({on:NET.on,url:NET.url})); }
+async function netFetch(path,opt){ opt=opt||{}; opt.headers=Object.assign({"Content-Type":"application/json"},opt.headers||{});
+  if(NET.token) opt.headers["Authorization"]="Bearer "+NET.token;
+  const r=await fetch(NET.url+path,opt); const j=await r.json().catch(()=>({}));
+  if(!r.ok){ const e=new Error(j.error||("Erreur "+r.status)); e.status=r.status; e.payload=j; throw e; }
+  return j; }
+function netSchedulePush(){ clearTimeout(NET.timer); NET.timer=setTimeout(netPush,800); }
+async function netPush(){
+  if(!NET.on||!NET.token||NET.pushing) return;
+  NET.pushing=true;
+  try{
+    const r=await netFetch("/api/data",{method:"POST",body:JSON.stringify({version:NET.version,data:DB})});
+    NET.version=r.version;
+  }catch(e){
+    if(e.status===409){ NET.version=e.payload.version; DB=e.payload.data||DB; localStorage.setItem(DBKEY,JSON.stringify(DB));
+      toast("Données mises à jour par un autre poste — écran actualisé."); if(SESSION) route(CURRENT); }
+    else if(e.status===401){ toast("Session expirée — reconnectez-vous."); logout(); }
+    else { toast("Serveur injoignable — réessai automatique."); netSchedulePush(); }
+  }finally{ NET.pushing=false; }
+}
+async function netPull(){
+  const r=await netFetch("/api/data");
+  NET.version=r.version;
+  if(r.data){ DB=r.data; }
+  else { DB=seedDB(); await netFetch("/api/data",{method:"POST",body:JSON.stringify({version:NET.version,data:DB})}).then(x=>NET.version=x.version).catch(()=>{}); }
+  localStorage.setItem(DBKEY,JSON.stringify(DB));
+}
+function configServeur(){
+  netLoadCfg();
+  openModal("Mode réseau (serveur)",`
+    <div class="row">
+      <div class="fld full"><label>Adresse du serveur</label><input id="net_url" placeholder="http://192.168.1.10:4030 ou https://votre-domaine" value="${esc(NET.url)}"></div>
+      <div class="fld full"><label>Mode</label><select id="net_on"><option value="0" ${NET.on?"":"selected"}>Local (données dans ce navigateur)</option><option value="1" ${NET.on?"selected":""}>Réseau (données partagées sur le serveur)</option></select></div>
+    </div>
+    <div class="s" style="margin-top:10px">En mode réseau, la connexion utilise les comptes du <b>serveur</b> (au départ : admin / admin123) et tous les postes voient les mêmes données.</div>`,
+    async ()=>{
+      NET.url=val("net_url").replace(/\/+$/,""); NET.on=val("net_on")==="1";
+      if(NET.on){ if(!NET.url){toast("Renseignez l'adresse du serveur.");return;}
+        try{ const h=await fetch(NET.url+"/api/health").then(r=>r.json()); if(!h.ok) throw 0;
+          netSaveCfg(); closeModal(); toast("Serveur trouvé : "+(h.structure||"OK")); showLogin();
+        }catch(e){ toast("Serveur injoignable à cette adresse."); }
+      } else { NET.token=""; netSaveCfg(); closeModal(); toast("Mode local activé."); showLogin(); }
+    },"Enregistrer");
+}
+</script>
+<script>
+/* ============ Démarrage & licence ============ */
+function boot(){
+  loadDB();
+  [$("#licLogo"),$("#loginLogo"),$("#sideLogo")].forEach(i=>{ if(i){ if(LOGO)i.src=LOGO; else i.style.display="none"; } });
+  const st=licState();
+  if(!st.ok){ showLicence(); return; }
+  showLogin();
+}
+function showLicence(){
+  $("#app").classList.add("hidden"); $("#ovLogin").classList.add("hidden");
+  const st=licState();
+  const el=$("#licState"); el.textContent=st.msg; el.className="state "+(st.ok?"okk":"kok");
+  $("#licKey").innerHTML = DB.license.key ? ("Clé active : <b>"+esc(DB.license.key)+"</b>") : "";
+  $("#licBack").classList.toggle("hidden",!st.ok);
+  $("#licMsg").innerHTML=""; $("#genOut").innerHTML="";
+  $("#ovLicence").classList.remove("hidden");
+}
+function fermerLicence(){ $("#ovLicence").classList.add("hidden"); if(SESSION) showApp(); else showLogin(); }
+function activerLicence(){
+  if(applyKey($("#licInput").value)){
+    $("#licMsg").innerHTML='<div class="msg ok">Licence activée. Merci.</div>';
+    setTimeout(showLicence,600);
+  } else { $("#licMsg").innerHTML='<div class="msg err">Clé de licence invalide.</div>'; }
+}
+function genererLicence(){
+  if($("#genPwd").value!==LADMIN){ $("#genOut").innerHTML='<div class="msg err">Mot de passe du générateur incorrect.</div>'; return; }
+  const plan=$("#genPlan").value; const mois=parseInt($("#genMois").value||"12",10)||12;
+  const days = plan==="E"?TRIAL : (plan==="D"?mois*30:0);
+  const k=makeKey(plan,days);
+  $("#genOut").innerHTML='<div class="keybox">'+k+'</div>';
+}
+
+/* ============ Connexion ============ */
+function showLogin(){
+  $("#app").classList.add("hidden"); $("#ovLicence").classList.add("hidden");
+  $("#loginNom").textContent = DB.etab.nom || "MARIE LOUISE";
+  $("#loginSub").textContent = DB.etab.medecinChef ? ("Dr "+DB.etab.medecinChef) : "Gestion de stock";
+  if(DB.etab.logo) $("#loginLogo").src=DB.etab.logo;
+  $("#loginMsg").innerHTML=""; $("#loginPwd").value="";
+  $("#ovLogin").classList.remove("hidden");
+}
+function faireLogin(){
+  const u=$("#loginUser").value.trim(), p=$("#loginPwd").value;
+  const user=DB.users.find(x=>x.login.toLowerCase()===u.toLowerCase() && x.pwd===p);
+  if(!user){ $("#loginMsg").innerHTML='<div class="msg err">Identifiant ou mot de passe incorrect.</div>'; return; }
+  SESSION=user; showApp();
+}
+function logout(){ SESSION=null; showLogin(); }
+
+/* ============ Application ============ */
+function showApp(){
+  const st=licState(); if(!st.ok){ showLicence(); return; }
+  $("#ovLogin").classList.add("hidden"); $("#ovLicence").classList.add("hidden");
+  if(DB.etab.logo) $("#sideLogo").src=DB.etab.logo;
+  $("#sideEtab").textContent = DB.etab.nom || "Entreprise";
+  $("#topUser").textContent = SESSION.nom || SESSION.login;
+  $("#topRole").textContent = SESSION.role;
+  buildNav();
+  const allowed=ACCESS[SESSION.role]||["dashboard"];
+  if(!allowed.includes(CURRENT)) CURRENT=allowed[0];
+  $("#app").classList.remove("hidden");
+  const b=$("#trialBanner");
+  if(st.essai){ b.classList.remove("hidden"); b.textContent="⏳ "+st.msg+" — pensez à activer votre licence."; }
+  else b.classList.add("hidden");
+  route(CURRENT);
+}
+function buildNav(){
+  const allowed=ACCESS[SESSION.role]||["dashboard"];
+  $("#nav").innerHTML = MODULES.filter(m=>allowed.includes(m.id)).map(m=>
+    `<a href="#" data-id="${m.id}" onclick="route('${m.id}');return false" class="${m.id===CURRENT?'on':''}"><span class="ic">${m.ic}</span><span class="lbl">${m.label}</span></a>`
+  ).join("");
+}
+function route(id){
+  const allowed=ACCESS[SESSION.role]||["dashboard"];
+  if(!allowed.includes(id)) return;
+  CURRENT=id;
+  $$("#nav a").forEach(a=>a.classList.toggle("on",a.dataset.id===id));
+  const m=MODULES.find(x=>x.id===id);
+  $("#pageTitle").textContent=m?m.label:"";
+  const V={dashboard:vDashboard,produits:vProduits,entrees:vEntrees,ventes:vVentes,mouvements:vMouvements,
+           fournisseurs:vFournisseurs,rapports:vRapports,users:vUsers,params:vParams,licence:vLicence};
+  ($("#view").innerHTML="") , (V[id]||(()=>{}))();
+}
+function openLicenceScreen(){ showLicence(); }
+</script>
+<script>
+/* ============ TABLEAU DE BORD ============ */
+function stockVal(){ return DB.produits.reduce((s,p)=>s+(+p.stock||0)*(+p.prixAchat||0),0); }
+function vDashboard(){
+  const alertes=DB.produits.filter(p=>(+p.stock||0)<=(+p.stockMin||0));
+  const ventesJour=DB.ventes.filter(v=>sameDay(v.date));
+  const caJour=ventesJour.reduce((s,v)=>s+(+v.total||0),0);
+  const caMois=DB.ventes.filter(v=>sameMonth(v.date)).reduce((s,v)=>s+(+v.total||0),0);
+  const mvtJour=DB.mouvements.filter(m=>sameDay(m.date)).length;
+  const top=DB.produits.slice().sort((a,b)=>(+b.stock||0)*(+b.prixAchat||0)-(+a.stock||0)*(+a.prixAchat||0)).slice(0,5);
+  $("#view").innerHTML=`
+    <div class="head"><div><h1>Bonjour, ${esc(SESSION.nom||SESSION.login)}</h1>
+      <div class="s">${esc(DB.etab.nom||"Votre entreprise")} — gestion de stock</div></div></div>
+    <div class="kpis">
+      <div class="kpi v"><div class="n">${DB.produits.length}</div><div class="l">Produits</div></div>
+      <div class="kpi g"><div class="n">${money(stockVal())}</div><div class="l">Valeur du stock</div></div>
+      <div class="kpi j"><div class="n">${ventesJour.length}</div><div class="l">Ventes du jour</div></div>
+      <div class="kpi g"><div class="n">${money(caJour)}</div><div class="l">Recettes du jour</div></div>
+      <div class="kpi b"><div class="n">${mvtJour}</div><div class="l">Mouvements du jour</div></div>
+      <div class="kpi g"><div class="n">${money(caMois)}</div><div class="l">Recettes ce mois</div></div>
+      ${alertes.length?`<div class="kpi r"><div class="n">${alertes.length}</div><div class="l">Alertes stock</div></div>`:""}
+    </div>
+    ${alertes.length?`<div class="trial" style="display:block">⚠️ Stock bas : ${alertes.slice(0,8).map(p=>esc(p.nom)+" ("+p.stock+")").join(", ")}${alertes.length>8?"…":""}</div>`:""}
+    <div class="grid2">
+      <div class="card"><div class="ctitle">🛒 Dernières ventes</div>
+        <div class="tw"><table><thead><tr><th>N°</th><th>Heure</th><th>Articles</th><th>Total</th></tr></thead><tbody>
+        ${DB.ventes.slice(-6).reverse().map(v=>`<tr><td class="pill">${esc(v.num)}</td><td class="pill">${fdt(v.date)}</td><td>${v.lignes.length}</td><td><b>${money(v.total)}</b></td></tr>`).join("")||`<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:18px">Aucune vente.</td></tr>`}
+        </tbody></table></div></div>
+      <div class="card"><div class="ctitle">📦 Plus grosses valeurs en stock</div>
+        <div class="tw"><table><thead><tr><th>Produit</th><th>Stock</th><th>Valeur</th></tr></thead><tbody>
+        ${top.map(p=>`<tr><td><b>${esc(p.nom)}</b></td><td>${p.stock} ${esc(p.unite||"")}</td><td>${money((+p.stock||0)*(+p.prixAchat||0))}</td></tr>`).join("")||`<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:18px">Aucun produit.</td></tr>`}
+        </tbody></table></div></div>
+    </div>`;
+}
+
+/* ============ PRODUITS (CRUD admin) ============ */
+let prSearch="";
+function isAdmin(){ return SESSION.role==="Directeur"; }
+function canManageProducts(){ return SESSION.role==="Directeur"||SESSION.role==="Gestionnaire"; }
+function vProduits(){
+  const q=prSearch.toLowerCase();
+  const list=DB.produits.filter(p=>!q||[p.nom,p.code,p.cat].join(" ").toLowerCase().includes(q));
+  $("#view").innerHTML=`
+    <div class="head"><div><h1>Produits</h1><div class="s">${DB.produits.length} produit(s) — valeur ${money(stockVal())}</div></div>
+      ${canManageProducts()?`<button class="btn p" onclick="editProduit()">+ Nouveau produit</button>`:""}</div>
+    <div class="search"><input id="prq" placeholder="Rechercher nom, code, catégorie..." value="${esc(prSearch)}" oninput="prSearch=this.value;const p=this.selectionStart;vProduits();const e=document.getElementById('prq');if(e){e.focus();e.setSelectionRange(p,p);}"></div>
+    <div class="card"><div class="tw"><table>
+      <thead><tr><th>Code</th><th>Produit</th><th>Catégorie</th><th>Stock</th><th>Min.</th><th>Prix achat</th><th>Prix vente</th><th>État</th><th></th></tr></thead><tbody>
+      ${list.length?list.slice().reverse().map(p=>`<tr>
+        <td class="pill">${esc(p.code)}</td><td><b>${esc(p.nom)}</b></td>
+        <td><span class="badge bb">${esc(p.cat||"—")}</span></td>
+        <td style="font-weight:800;color:${(+p.stock)<=(+p.stockMin)?'var(--red)':'var(--ok)'}">${p.stock} ${esc(p.unite||"")}</td>
+        <td class="pill">${p.stockMin}</td>
+        <td>${money(p.prixAchat)}</td><td><b>${money(p.prixVente)}</b></td>
+        <td>${(+p.stock)<=(+p.stockMin)?'<span class="badge br">⚠ Bas</span>':'<span class="badge bg">OK</span>'}</td>
+        <td style="white-space:nowrap">
+          ${canManageProducts()?`<button class="btn sm" onclick="editProduit('${p.id}')">Modifier</button>`:""}
+          ${isAdmin()?`<button class="btn sm dgr" onclick="delProduit('${p.id}')">Suppr.</button>`:""}
+        </td></tr>`).join(""):`<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">Aucun produit. ${canManageProducts()?"Cliquez « + Nouveau produit ».":""}</td></tr>`}
+    </tbody></table></div></div>`;
+}
+function editProduit(id){
+  const p=id?prod(id):{code:"P"+String(DB.seq.produit||1).padStart(4,"0"),nom:"",cat:DB.etab.cats[0]||"Autre",unite:"pièce",stock:0,stockMin:5,prixAchat:0,prixVente:0,fournisseurId:""};
+  const catOpt=DB.etab.cats.map(c=>`<option value="${esc(c)}">`).join("");
+  const fOpt=DB.fournisseurs.map(f=>`<option value="${f.id}" ${p.fournisseurId===f.id?"selected":""}>${esc(f.nom)}</option>`).join("");
+  openModal(id?"Modifier le produit":"Nouveau produit",`
+    <div class="row">
+      <div class="fld"><label>Code</label><input id="pr_code" value="${esc(p.code)}"></div>
+      <div class="fld"><label>Nom du produit *</label><input id="pr_nom" value="${esc(p.nom)}"></div>
+      <div class="fld"><label>Catégorie</label><input id="pr_cat" list="catList" value="${esc(p.cat||"")}"><datalist id="catList">${catOpt}</datalist></div>
+      <div class="fld"><label>Unité</label><select id="pr_unite">${UNITES.map(u=>`<option ${p.unite===u?"selected":""}>${u}</option>`).join("")}</select></div>
+      <div class="fld"><label>Stock ${id?"(modifier via Entrées/Sorties)":"initial"}</label><input id="pr_stock" type="number" value="${p.stock||0}" ${id?"readonly":""}></div>
+      <div class="fld"><label>Seuil d'alerte</label><input id="pr_min" type="number" value="${p.stockMin||0}"></div>
+      <div class="fld"><label>Prix d'achat</label><input id="pr_pa" type="number" value="${p.prixAchat||0}"></div>
+      <div class="fld"><label>Prix de vente</label><input id="pr_pv" type="number" value="${p.prixVente||0}"></div>
+      <div class="fld full"><label>Fournisseur habituel</label><select id="pr_four"><option value="">—</option>${fOpt}</select></div>
+    </div>`, ()=>{
+      const nom=val("pr_nom"); if(!nom){toast("Le nom est obligatoire.");return;}
+      const cat=val("pr_cat")||"Autre";
+      if(cat && !DB.etab.cats.includes(cat)) DB.etab.cats.push(cat); // l'admin crée des catégories à la volée
+      const o={code:val("pr_code"),nom,cat,unite:val("pr_unite"),stockMin:+val("pr_min")||0,prixAchat:+val("pr_pa")||0,prixVente:+val("pr_pv")||0,fournisseurId:val("pr_four")};
+      if(id){ Object.assign(prod(id),o); }
+      else { o.id=uid("pr"); o.stock=+val("pr_stock")||0; DB.seq.produit=(DB.seq.produit||1)+1; o.createdAt=nowISO(); DB.produits.push(o);
+        if(o.stock>0) DB.mouvements.push({id:uid("m"),date:nowISO(),type:"Entrée",produitId:o.id,qte:o.stock,motif:"Stock initial",par:SESSION.nom||SESSION.login}); }
+      saveDB(); closeModal(); toast("Produit enregistré."); vProduits();
+    });
+}
+function delProduit(id){ if(confirm("Supprimer ce produit ?")){ DB.produits=DB.produits.filter(x=>x.id!==id); saveDB(); vProduits(); } }
+
+/* ============ ENTRÉES DE STOCK ============ */
+function vEntrees(){
+  const opt=DB.produits.map(p=>`<option value="${p.id}">${esc(p.code)} — ${esc(p.nom)} (stock: ${p.stock})</option>`).join("");
+  const fOpt=DB.fournisseurs.map(f=>`<option value="${f.id}">${esc(f.nom)}</option>`).join("");
+  const list=DB.mouvements.filter(m=>m.type==="Entrée").slice(-30).reverse();
+  $("#view").innerHTML=`
+    <div class="head"><div><h1>Entrées de stock</h1><div class="s">Réceptions et réapprovisionnements</div></div></div>
+    <div class="card"><div class="ctitle">📥 Nouvelle entrée</div>
+      <div class="row">
+        <div class="fld full"><label>Produit *</label><select id="en_prod"><option value="">—</option>${opt}</select></div>
+        <div class="fld"><label>Quantité *</label><input id="en_qte" type="number" min="1" value="1"></div>
+        <div class="fld"><label>Fournisseur</label><select id="en_four"><option value="">—</option>${fOpt}</select></div>
+        <div class="fld"><label>Motif</label><input id="en_motif" value="Réception" placeholder="Réception, retour client..."></div>
+      </div><button class="btn p" style="margin-top:12px" onclick="addEntree()">Enregistrer l'entrée</button></div>
+    <div class="card"><div class="ctitle">Dernières entrées</div><div class="tw"><table>
+      <thead><tr><th>Date</th><th>Produit</th><th>Qté</th><th>Motif</th><th>Par</th></tr></thead><tbody>
+      ${list.map(m=>{const p=prod(m.produitId);return `<tr><td class="pill">${fdt(m.date)}</td><td><b>${esc(p?p.nom:"—")}</b></td><td style="color:var(--ok);font-weight:800">+${m.qte}</td><td>${esc(m.motif||"—")}</td><td class="pill">${esc(m.par||"—")}</td></tr>`;}).join("")||`<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">Aucune entrée.</td></tr>`}
+    </tbody></table></div></div>`;
+}
+function addEntree(){
+  const pid=val("en_prod"), q=+val("en_qte")||0;
+  if(!pid||q<=0){toast("Produit et quantité obligatoires.");return;}
+  const p=prod(pid); p.stock=(+p.stock||0)+q;
+  const f=DB.fournisseurs.find(x=>x.id===val("en_four"));
+  DB.mouvements.push({id:uid("m"),date:nowISO(),type:"Entrée",produitId:pid,qte:q,motif:val("en_motif")||"Réception",fournisseur:f?f.nom:"",par:SESSION.nom||SESSION.login});
+  saveDB(); toast("Entrée enregistrée (+"+q+")."); vEntrees();
+}
+
+/* ============ VENTES / SORTIES ============ */
+let panier=[];
+function vVentes(){
+  panier=[];
+  const opt=DB.produits.filter(p=>(+p.stock||0)>0).map(p=>`<option value="${p.id}">${esc(p.code)} — ${esc(p.nom)} (${p.stock} dispo · ${money(p.prixVente)})</option>`).join("");
+  const list=DB.ventes.slice(-15).reverse();
+  $("#view").innerHTML=`
+    <div class="head"><div><h1>Ventes / Sorties</h1><div class="s">${DB.ventes.length} vente(s) enregistrée(s)</div></div></div>
+    <div class="grid2">
+      <div class="card"><div class="ctitle">🛒 Nouvelle vente</div>
+        <div class="row">
+          <div class="fld full"><label>Produit</label><select id="ve_prod">${opt||'<option value="">Aucun produit en stock</option>'}</select></div>
+          <div class="fld"><label>Quantité</label><input id="ve_qte" type="number" min="1" value="1"></div>
+          <div class="fld"><label>&nbsp;</label><button class="btn" onclick="addPanier()">+ Ajouter au panier</button></div>
+        </div>
+        <div id="panierZone" style="margin-top:12px"></div>
+        <div class="row" style="margin-top:10px">
+          <div class="fld"><label>Client (optionnel)</label><input id="ve_client"></div>
+          <div class="fld"><label>Mode de paiement</label><select id="ve_mode"><option>Espèces</option><option>Airtel Money</option><option>Moov Money</option><option>Crédit</option></select></div>
+        </div>
+        <button class="btn gold" style="margin-top:12px" onclick="validerVente()">💰 Valider la vente</button>
+      </div>
+      <div class="card"><div class="ctitle">Sortie hors vente (perte, casse, don…)</div>
+        <div class="row">
+          <div class="fld full"><label>Produit</label><select id="so_prod">${DB.produits.map(p=>`<option value="${p.id}">${esc(p.nom)} (${p.stock})</option>`).join("")}</select></div>
+          <div class="fld"><label>Quantité</label><input id="so_qte" type="number" min="1" value="1"></div>
+          <div class="fld"><label>Motif</label><input id="so_motif" placeholder="Perte, casse, péremption..."></div>
+        </div>
+        <button class="btn dgr" style="margin-top:12px" onclick="addSortie()">Enregistrer la sortie</button>
+      </div>
+    </div>
+    <div class="card"><div class="ctitle">Dernières ventes</div><div class="tw"><table>
+      <thead><tr><th>N°</th><th>Date</th><th>Client</th><th>Articles</th><th>Total</th><th>Mode</th><th></th></tr></thead><tbody>
+      ${list.map(v=>`<tr><td class="pill">${esc(v.num)}</td><td class="pill">${fdt(v.date)}</td><td>${esc(v.client||"—")}</td><td>${v.lignes.length}</td><td><b>${money(v.total)}</b></td><td class="pill">${esc(v.mode)}</td>
+        <td><button class="btn sm" onclick="printTicket('${v.id}')">🖨 Ticket</button></td></tr>`).join("")||`<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Aucune vente.</td></tr>`}
+    </tbody></table></div></div>`;
+  renderPanier();
+}
+function renderPanier(){
+  const z=document.getElementById("panierZone"); if(!z)return;
+  if(!panier.length){ z.innerHTML='<div class="s">Panier vide.</div>'; return; }
+  const total=panier.reduce((s,l)=>s+l.qte*l.pu,0);
+  z.innerHTML=`<div class="tw"><table><thead><tr><th>Produit</th><th>Qté</th><th>P.U.</th><th>Total</th><th></th></tr></thead><tbody>
+    ${panier.map((l,i)=>`<tr><td>${esc(l.nom)}</td><td>${l.qte}</td><td>${money(l.pu)}</td><td><b>${money(l.qte*l.pu)}</b></td>
+      <td><button class="btn sm dgr" onclick="panier.splice(${i},1);renderPanier()">✕</button></td></tr>`).join("")}
+    </tbody><tfoot><tr><td colspan="3" style="font-weight:800">TOTAL</td><td colspan="2" style="font-weight:800">${money(total)}</td></tr></tfoot></table></div>`;
+}
+function addPanier(){
+  const pid=val("ve_prod"), q=+val("ve_qte")||0;
+  const p=prod(pid); if(!p||q<=0){toast("Choisissez un produit et une quantité.");return;}
+  const deja=panier.filter(l=>l.produitId===pid).reduce((s,l)=>s+l.qte,0);
+  if(q+deja>(+p.stock||0)){toast("Stock insuffisant ("+p.stock+" disponible).");return;}
+  panier.push({produitId:pid,nom:p.nom,qte:q,pu:+p.prixVente||0});
+  renderPanier();
+}
+function validerVente(){
+  if(!panier.length){toast("Le panier est vide.");return;}
+  const total=panier.reduce((s,l)=>s+l.qte*l.pu,0);
+  const v={id:uid("v"),num:nextNum("VTE","vente"),date:nowISO(),client:val("ve_client"),mode:val("ve_mode"),lignes:panier.slice(),total,par:SESSION.nom||SESSION.login};
+  v.lignes.forEach(l=>{ const p=prod(l.produitId); p.stock=(+p.stock||0)-l.qte;
+    DB.mouvements.push({id:uid("m"),date:v.date,type:"Vente",produitId:l.produitId,qte:-l.qte,motif:"Vente "+v.num,par:v.par}); });
+  DB.ventes.push(v); saveDB(); toast("Vente "+v.num+" enregistrée."); vVentes(); printTicket(v.id);
+}
+function addSortie(){
+  const pid=val("so_prod"), q=+val("so_qte")||0;
+  const p=prod(pid); if(!p||q<=0){toast("Produit et quantité obligatoires.");return;}
+  if(q>(+p.stock||0)){toast("Stock insuffisant.");return;}
+  p.stock=(+p.stock||0)-q;
+  DB.mouvements.push({id:uid("m"),date:nowISO(),type:"Sortie",produitId:pid,qte:-q,motif:val("so_motif")||"Sortie",par:SESSION.nom||SESSION.login});
+  saveDB(); toast("Sortie enregistrée (-"+q+")."); vVentes();
+}
+function printTicket(id){
+  const v=DB.ventes.find(x=>x.id===id); if(!v)return; const e=DB.etab;
+  const w=window.open("","_blank");
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Ticket ${esc(v.num)}</title>
+  <style>body{font-family:ui-monospace,Consolas,monospace;max-width:380px;margin:0 auto;padding:16px;color:#111;font-size:12.5px}
+  .c{text-align:center}.b{font-weight:800}.hr{border-top:1px dashed #333;margin:8px 0}
+  table{width:100%;border-collapse:collapse}td{padding:2px 0}.r{text-align:right}
+  @media print{.np{display:none}}</style></head><body>
+  <button class="np" onclick="window.print()" style="width:100%;padding:8px;margin-bottom:10px;font-weight:700;cursor:pointer">🖨 Imprimer</button>
+  <div class="c b" style="font-size:15px">${esc(e.nom||"MARIE LOUISE")}</div>
+  <div class="c">${esc(e.ville||"")}${e.tel?" · Tél "+esc(e.tel):""}</div>
+  <div class="hr"></div>
+  <div>Ticket : <span class="b">${esc(v.num)}</span></div>
+  <div>Date : ${fdt(v.date)}</div>
+  ${v.client?`<div>Client : ${esc(v.client)}</div>`:""}
+  <div class="hr"></div>
+  <table>${v.lignes.map(l=>`<tr><td>${esc(l.nom)}<br><span style="color:#555">${l.qte} × ${l.pu.toLocaleString("fr-FR")}</span></td><td class="r b">${(l.qte*l.pu).toLocaleString("fr-FR")}</td></tr>`).join("")}</table>
+  <div class="hr"></div>
+  <table><tr><td class="b" style="font-size:15px">TOTAL</td><td class="r b" style="font-size:15px">${money(v.total)}</td></tr>
+  <tr><td>Paiement</td><td class="r">${esc(v.mode)}</td></tr></table>
+  <div class="hr"></div>
+  <div class="c">Merci de votre visite !</div>
+  <div class="c" style="color:#555;margin-top:6px">Vendeur : ${esc(v.par||"")}<br>MARIE LOUISE · Pro-Technologie</div>
+  </body></html>`); w.document.close();
+}
+
+/* ============ MOUVEMENTS ============ */
+function vMouvements(){
+  const list=DB.mouvements.slice(-60).reverse();
+  $("#view").innerHTML=`
+    <div class="head"><div><h1>Mouvements de stock</h1><div class="s">${DB.mouvements.length} mouvement(s) — 60 derniers affichés</div></div></div>
+    <div class="card"><div class="tw"><table>
+      <thead><tr><th>Date</th><th>Type</th><th>Produit</th><th>Qté</th><th>Motif</th><th>Par</th></tr></thead><tbody>
+      ${list.map(m=>{const p=prod(m.produitId);const pos=m.qte>0;
+        return `<tr><td class="pill">${fdt(m.date)}</td>
+        <td><span class="badge ${m.type==="Entrée"?"bg":m.type==="Vente"?"bj":"br"}">${esc(m.type)}</span></td>
+        <td><b>${esc(p?p.nom:"—")}</b></td>
+        <td style="font-weight:800;color:${pos?'var(--ok)':'var(--red)'}">${pos?"+":""}${m.qte}</td>
+        <td>${esc(m.motif||"—")}</td><td class="pill">${esc(m.par||"—")}</td></tr>`;}).join("")||`<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">Aucun mouvement.</td></tr>`}
+    </tbody></table></div></div>`;
+}
+
+/* ============ FOURNISSEURS ============ */
+function vFournisseurs(){
+  $("#view").innerHTML=`
+    <div class="head"><div><h1>Fournisseurs</h1><div class="s">${DB.fournisseurs.length} fournisseur(s)</div></div>
+      <button class="btn p" onclick="editFour()">+ Nouveau fournisseur</button></div>
+    <div class="card"><div class="tw"><table>
+      <thead><tr><th>Nom</th><th>Contact</th><th>Téléphone</th><th>Email</th><th></th></tr></thead><tbody>
+      ${DB.fournisseurs.length?DB.fournisseurs.map(f=>`<tr><td><b>${esc(f.nom)}</b></td><td>${esc(f.contact||"—")}</td><td>${esc(f.tel||"—")}</td><td>${esc(f.email||"—")}</td>
+        <td><button class="btn sm" onclick="editFour('${f.id}')">Modifier</button>
+        ${isAdmin()?`<button class="btn sm dgr" onclick="delFour('${f.id}')">Suppr.</button>`:""}</td></tr>`).join(""):`<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">Aucun fournisseur.</td></tr>`}
+    </tbody></table></div></div>`;
+}
+function editFour(id){
+  const f=id?DB.fournisseurs.find(x=>x.id===id):{nom:"",contact:"",tel:"",email:""};
+  openModal(id?"Modifier le fournisseur":"Nouveau fournisseur",`<div class="row">
+    <div class="fld"><label>Nom *</label><input id="fo_nom" value="${esc(f.nom)}"></div>
+    <div class="fld"><label>Personne de contact</label><input id="fo_contact" value="${esc(f.contact||"")}"></div>
+    <div class="fld"><label>Téléphone</label><input id="fo_tel" value="${esc(f.tel||"")}"></div>
+    <div class="fld"><label>Email</label><input id="fo_email" value="${esc(f.email||"")}"></div>
+  </div>`, ()=>{
+    const nom=val("fo_nom"); if(!nom){toast("Le nom est obligatoire.");return;}
+    const o={nom,contact:val("fo_contact"),tel:val("fo_tel"),email:val("fo_email")};
+    if(id){ Object.assign(DB.fournisseurs.find(x=>x.id===id),o); } else { o.id=uid("fo"); DB.fournisseurs.push(o); }
+    saveDB(); closeModal(); toast("Fournisseur enregistré."); vFournisseurs();
+  });
+}
+function delFour(id){ if(confirm("Supprimer ce fournisseur ?")){ DB.fournisseurs=DB.fournisseurs.filter(x=>x.id!==id); saveDB(); vFournisseurs(); } }
+
+/* ============ RAPPORTS ============ */
+function vRapports(){
+  const mois=DB.ventes.filter(v=>sameMonth(v.date));
+  const caMois=mois.reduce((s,v)=>s+(+v.total||0),0);
+  // marge estimée du mois
+  let marge=0; mois.forEach(v=>v.lignes.forEach(l=>{const p=prod(l.produitId); marge+=l.qte*(l.pu-(p?+p.prixAchat||0:0));}));
+  // top produits vendus (mois)
+  const topV={}; mois.forEach(v=>v.lignes.forEach(l=>{topV[l.nom]=(topV[l.nom]||0)+l.qte;}));
+  const top=Object.entries(topV).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  // valeur par catégorie
+  const parCat={}; DB.produits.forEach(p=>{parCat[p.cat||"Autre"]=(parCat[p.cat||"Autre"]||0)+(+p.stock||0)*(+p.prixAchat||0);});
+  const bas=DB.produits.filter(p=>(+p.stock||0)<=(+p.stockMin||0));
+  $("#view").innerHTML=`
+    <div class="head"><div><h1>Rapports & statistiques</h1></div></div>
+    <div class="kpis">
+      <div class="kpi g"><div class="n">${money(caMois)}</div><div class="l">Chiffre d'affaires (mois)</div></div>
+      <div class="kpi j"><div class="n">${money(marge)}</div><div class="l">Marge estimée (mois)</div></div>
+      <div class="kpi v"><div class="n">${money(stockVal())}</div><div class="l">Valeur du stock</div></div>
+      <div class="kpi r"><div class="n">${bas.length}</div><div class="l">Produits sous le seuil</div></div>
+    </div>
+    <div class="grid2">
+      <div class="card"><div class="ctitle">🏆 Produits les plus vendus (mois)</div><div class="tw"><table><thead><tr><th>Produit</th><th>Qté vendue</th></tr></thead><tbody>
+      ${top.map(([n,q])=>`<tr><td>${esc(n)}</td><td><b>${q}</b></td></tr>`).join("")||`<tr><td colspan="2" style="text-align:center;color:var(--muted);padding:16px">Aucune vente ce mois.</td></tr>`}
+      </tbody></table></div></div>
+      <div class="card"><div class="ctitle">📦 Valeur du stock par catégorie</div><div class="tw"><table><thead><tr><th>Catégorie</th><th>Valeur</th></tr></thead><tbody>
+      ${Object.entries(parCat).sort((a,b)=>b[1]-a[1]).map(([c,v])=>`<tr><td><span class="badge bb">${esc(c)}</span></td><td><b>${money(v)}</b></td></tr>`).join("")||`<tr><td colspan="2" style="text-align:center;color:var(--muted);padding:16px">Aucun produit.</td></tr>`}
+      </tbody></table></div></div>
+    </div>
+    <div class="card"><div class="ctitle">⚠️ Produits à réapprovisionner</div><div class="tw"><table><thead><tr><th>Produit</th><th>Stock</th><th>Seuil</th><th>Fournisseur</th></tr></thead><tbody>
+    ${bas.map(p=>{const f=DB.fournisseurs.find(x=>x.id===p.fournisseurId);return `<tr><td><b>${esc(p.nom)}</b></td><td style="color:var(--red);font-weight:800">${p.stock}</td><td>${p.stockMin}</td><td>${esc(f?f.nom:"—")}</td></tr>`;}).join("")||`<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:16px">Rien à signaler. 👍</td></tr>`}
+    </tbody></table></div></div>`;
+}
+</script>
+<script>
+/* ============ UTILISATEURS (local + serveur) ============ */
+async function vUsersNet(){
+  let users=[];
+  try{ users=(await netFetch("/api/users")).users; }
+  catch(e){ $("#view").innerHTML='<div class="card">Impossible de charger les comptes : '+esc(e.message)+'</div>'; return; }
+  $("#view").innerHTML=`
+    <div class="head"><div><h1>Utilisateurs (serveur)</h1><div class="s">${users.length} compte(s) — ces comptes servent à se connecter depuis tous les postes</div></div>
+      <button class="btn p" onclick="editUserNet()">+ Nouveau compte</button></div>
+    <div class="card"><div class="tw"><table>
+      <thead><tr><th>Identifiant</th><th>Nom</th><th>Rôle</th><th>Statut</th><th></th></tr></thead><tbody>
+      ${users.map(u=>`<tr><td class="pill">${esc(u.login)}</td><td><b>${esc(u.nom)}</b></td>
+        <td><span class="badge ${u.role==="Directeur"?"bj":"bb"}">${esc(u.role)}</span></td>
+        <td><span class="badge ${u.actif?"bg":"bgy"}">${u.actif?"Actif":"Désactivé"}</span></td>
+        <td><button class="btn sm" onclick="editUserNet(${u.id},'${esc(u.login)}','${esc(u.nom)}','${esc(u.role)}',${u.actif})">Modifier</button></td></tr>`).join("")}
+    </tbody></table></div></div>`;
+}
+function editUserNet(id,login,nom,role,actif){
+  openModal(id?"Modifier le compte":"Nouveau compte",`<div class="row">
+    <div class="fld"><label>Nom *</label><input id="u_nom" value="${esc(nom||"")}"></div>
+    <div class="fld"><label>Identifiant *</label><input id="u_login" value="${esc(login||"")}" ${id?"readonly":""}></div>
+    <div class="fld"><label>Rôle</label><select id="u_role">${ROLES.map(r=>`<option ${role===r?"selected":""}>${r}</option>`).join("")}</select></div>
+    <div class="fld"><label>Mot de passe ${id?"(vide = inchangé)":"*"}</label><input id="u_pwd"></div>
+    ${id?`<div class="fld"><label>Statut</label><select id="u_actif"><option value="1" ${actif?"selected":""}>Actif</option><option value="0" ${actif?"":"selected"}>Désactivé</option></select></div>`:""}
+  </div>`, async ()=>{
+    try{
+      if(id){ const b={nom:val("u_nom"),role:val("u_role"),actif:val("u_actif")==="1"}; if(val("u_pwd"))b.password=val("u_pwd");
+        await netFetch("/api/users/"+id,{method:"POST",body:JSON.stringify(b)}); }
+      else { if(!val("u_login")||!val("u_pwd")){toast("Identifiant et mot de passe obligatoires.");return;}
+        await netFetch("/api/users",{method:"POST",body:JSON.stringify({login:val("u_login"),nom:val("u_nom"),role:val("u_role"),password:val("u_pwd")})}); }
+      closeModal(); toast("Compte enregistré."); vUsersNet();
+    }catch(e){ toast(e.message); }
+  });
+}
+function vUsers(){
+  if(NET.on){ vUsersNet(); return; }
+  $("#view").innerHTML=`
+    <div class="head"><div><h1>Utilisateurs</h1><div class="s">${DB.users.length} compte(s)</div></div>
+      <button class="btn p" onclick="editUser()">+ Nouveau compte</button></div>
+    <div class="card"><div class="tw"><table>
+      <thead><tr><th>Identifiant</th><th>Nom</th><th>Rôle</th><th></th></tr></thead><tbody>
+      ${DB.users.map(u=>`<tr><td class="pill">${esc(u.login)}</td><td><b>${esc(u.nom)}</b></td>
+        <td><span class="badge ${u.role==="Directeur"?"bj":"bb"}">${esc(u.role)}</span></td>
+        <td><button class="btn sm" onclick="editUser('${u.id}')">Modifier</button>
+        ${u.login!=="admin"?`<button class="btn sm dgr" onclick="delUser('${u.id}')">Suppr.</button>`:""}</td></tr>`).join("")}
+    </tbody></table></div></div>`;
+}
+function editUser(id){
+  const u=id?DB.users.find(x=>x.id===id):{nom:"",login:"",role:"Vendeur",pwd:""};
+  openModal(id?"Modifier le compte":"Nouveau compte",`<div class="row">
+    <div class="fld"><label>Nom *</label><input id="u_nom" value="${esc(u.nom)}"></div>
+    <div class="fld"><label>Identifiant *</label><input id="u_login" value="${esc(u.login)}" ${u.login==="admin"?"readonly":""}></div>
+    <div class="fld"><label>Rôle</label><select id="u_role">${ROLES.map(r=>`<option ${u.role===r?"selected":""}>${r}</option>`).join("")}</select></div>
+    <div class="fld"><label>Mot de passe ${id?"(laisser vide = inchangé)":"*"}</label><input id="u_pwd" value=""></div>
+  </div>`, ()=>{
+    const nom=val("u_nom"), login=val("u_login"); if(!nom||!login){toast("Nom et identifiant obligatoires.");return;}
+    if(id){ const x=DB.users.find(y=>y.id===id); x.nom=nom; x.login=login; x.role=val("u_role"); if(val("u_pwd"))x.pwd=val("u_pwd"); }
+    else { if(DB.users.some(y=>y.login.toLowerCase()===login.toLowerCase())){toast("Cet identifiant existe déjà.");return;} DB.users.push({id:uid("u"),nom,login,role:val("u_role"),pwd:val("u_pwd")||"1234"}); }
+    saveDB(); closeModal(); toast("Compte enregistré."); vUsers();
+  });
+}
+function delUser(id){ if(confirm("Supprimer ce compte ?")){ DB.users=DB.users.filter(x=>x.id!==id); saveDB(); vUsers(); } }
+
+/* ============ PARAMÈTRES ============ */
+function vParams(){
+  const e=DB.etab;
+  $("#view").innerHTML=`
+    <div class="head"><div><h1>Paramètres</h1><div class="s">Ces informations apparaissent sur les tickets de vente</div></div></div>
+    <div class="card"><div class="ctitle">🏪 Entreprise / Boutique</div>
+      <div class="row">
+        <div class="fld"><label>Nom de l'entreprise *</label><input id="e_nom" value="${esc(e.nom)}"></div>
+        <div class="fld"><label>Ville</label><input id="e_ville" value="${esc(e.ville)}"></div>
+        <div class="fld"><label>Téléphone</label><input id="e_tel" value="${esc(e.tel)}"></div>
+        <div class="fld"><label>Téléphone 2</label><input id="e_tel2" value="${esc(e.tel2)}"></div>
+        <div class="fld"><label>Email</label><input id="e_email" value="${esc(e.email)}"></div>
+        <div class="fld"><label>Devise</label><input id="e_dev" value="${esc(e.devise||"F CFA")}"></div>
+      </div>
+      <div class="ctitle" style="margin-top:14px">🗂 Catégories de produits</div>
+      <div class="s" style="margin-bottom:8px">Séparées par des virgules — l'admin peut en ajouter ici ou directement à la création d'un produit.</div>
+      <div class="row"><div class="fld full"><input id="e_cats" value="${esc((e.cats||[]).join(", "))}"></div></div>
+      <div class="ctitle" style="margin-top:14px">🖼 Logo</div>
+      <div style="display:flex;align-items:center;gap:14px">
+        <img id="e_logoprev" src="${e.logo||""}" style="width:60px;height:60px;object-fit:contain;border:1px solid var(--line);border-radius:10px;background:#fff;${e.logo?"":"display:none"}">
+        <input type="file" accept="image/*" onchange="chargerLogo(this)">
+      </div>
+      <button class="btn p" style="margin-top:16px" onclick="saveParams()">💾 Enregistrer</button>
+    </div>
+    <div class="card"><div class="ctitle">💾 Sauvegarde des données</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn" onclick="exportDB()">⬇ Exporter (sauvegarde)</button>
+        <label class="btn" style="cursor:pointer">⬆ Importer (restaurer)<input type="file" accept="application/json" style="display:none" onchange="importDB(this)"></label>
+      </div>
+      <div class="s" style="margin-top:8px">${NET.on?"Mode réseau : les données vivent sur le serveur (sauvegardes automatiques incluses).":"Les données sont stockées dans ce navigateur. Exportez régulièrement une sauvegarde."}</div>
+    </div>`;
+}
+function chargerLogo(inp){ const f=inp.files[0]; if(!f)return; const r=new FileReader(); r.onload=e=>{ DB.etab.logo=e.target.result; const im=document.getElementById("e_logoprev"); im.src=e.target.result; im.style.display=""; }; r.readAsDataURL(f); }
+function saveParams(){ const nom=val("e_nom"); if(!nom){toast("Le nom de l'entreprise est obligatoire.");return;}
+  Object.assign(DB.etab,{nom,ville:val("e_ville"),tel:val("e_tel"),tel2:val("e_tel2"),email:val("e_email"),devise:val("e_dev")||"F CFA",
+    cats:val("e_cats").split(",").map(x=>x.trim()).filter(Boolean)});
+  saveDB(); $("#sideEtab").textContent=DB.etab.nom; if(DB.etab.logo){const si=$("#sideLogo");si.src=DB.etab.logo;si.style.display="";} toast("Paramètres enregistrés."); }
+function exportDB(){ const blob=new Blob([JSON.stringify(DB,null,2)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="mariel_sauvegarde_"+todayISO()+".json"; a.click(); }
+function importDB(inp){ const f=inp.files[0]; if(!f)return; const r=new FileReader(); r.onload=e=>{ try{ DB=JSON.parse(e.target.result); saveDB(); toast("Données restaurées."); showApp(); }catch(err){ toast("Fichier invalide."); } }; r.readAsText(f); }
+
+/* ============ LICENCE (vue interne) ============ */
+function vLicence(){
+  const st=licState();
+  $("#view").innerHTML=`
+    <div class="head"><div><h1>Licence</h1><div class="s">État de la licence du logiciel</div></div></div>
+    <div class="card" style="max-width:520px">
+      <div class="kpi ${st.ok?'g':'r'}" style="margin-bottom:14px"><div class="n" style="font-size:18px">${st.ok?"✔":"✖"} ${esc(st.msg)}</div><div class="l">MARIE LOUISE — Pro-Technologie</div></div>
+      ${DB.license.key?`<div class="s" style="margin-bottom:10px">Clé active : <b>${esc(DB.license.key)}</b></div>`:""}
+      <button class="btn gold" onclick="showLicence()">Gérer la licence / Activer une clé</button>
+      <div style="margin-top:14px;background:#faf5f6;border:1px solid var(--line);border-radius:12px;padding:12px">
+        <div style="font-size:11px;font-weight:800;color:var(--grn);text-transform:uppercase;letter-spacing:.4px">Activation & assistance — Pro-Technologie</div>
+        <div style="font-size:14px;font-weight:800;margin-top:6px">📞 077 92 54 58 · 066 92 54 58</div>
+        <div style="font-size:12px;margin-top:4px"><a href="mailto:ndongafene@protechnologie.com" style="color:var(--grn);font-weight:700">ndongafene@protechnologie.com</a></div>
+      </div>
+    </div>`;
+}
+window.addEventListener("DOMContentLoaded",boot);
+</script>
+</body></html>
