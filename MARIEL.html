@@ -170,6 +170,8 @@ tr:hover td{background:#f7faf8}
       <input id="loginPwd" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')faireLogin()">
       <button class="btn" onclick="faireLogin()">Accéder au système</button>
       <div id="loginMsg"></div>
+      <div id="srvInfo" class="small" style="margin-top:10px"></div>
+      <button class="linklike" onclick="configServeur()">⚙ Mode réseau (serveur)</button>
       <div class="small">© Pro-Technologie · Logiciel sous licence<br>📞 077 92 54 58 · 066 92 54 58 · <a href="mailto:ndongafene@protechnologie.com" style="color:var(--grn)">ndongafene@protechnologie.com</a></div>
     </div>
   </div>
@@ -367,10 +369,10 @@ function configServeur(){
 <script>
 /* ============ Démarrage & licence ============ */
 function boot(){
+  netLoadCfg();
   loadDB();
   [$("#licLogo"),$("#loginLogo"),$("#sideLogo")].forEach(i=>{ if(i){ if(LOGO)i.src=LOGO; else i.style.display="none"; } });
-  const st=licState();
-  if(!st.ok){ showLicence(); return; }
+  if(!NET.on){ const st=licState(); if(!st.ok){ showLicence(); return; } }
   showLogin();
 }
 function showLicence(){
@@ -404,15 +406,26 @@ function showLogin(){
   $("#loginSub").textContent = DB.etab.medecinChef ? ("Dr "+DB.etab.medecinChef) : "Gestion de stock";
   if(DB.etab.logo) $("#loginLogo").src=DB.etab.logo;
   $("#loginMsg").innerHTML=""; $("#loginPwd").value="";
+  const si=$("#srvInfo"); if(si) si.innerHTML = NET.on ? ("🌐 Mode réseau : <b>"+esc(NET.url)+"</b>") : "💻 Mode local (données dans ce navigateur)";
   $("#ovLogin").classList.remove("hidden");
 }
-function faireLogin(){
+async function faireLogin(){
   const u=$("#loginUser").value.trim(), p=$("#loginPwd").value;
+  if(NET.on){
+    try{
+      const r=await netFetch("/api/login",{method:"POST",body:JSON.stringify({login:u,password:p})});
+      NET.token=r.token; SESSION={id:"srv"+r.user.id,nom:r.user.nom,login:r.user.login,role:r.user.role};
+      await netPull();
+      const st=licState(); if(!st.ok){ showLicence(); return; }
+      showApp();
+    }catch(e){ $("#loginMsg").innerHTML='<div class="msg err">'+esc(e.message)+'</div>'; }
+    return;
+  }
   const user=DB.users.find(x=>x.login.toLowerCase()===u.toLowerCase() && x.pwd===p);
   if(!user){ $("#loginMsg").innerHTML='<div class="msg err">Identifiant ou mot de passe incorrect.</div>'; return; }
   SESSION=user; showApp();
 }
-function logout(){ SESSION=null; showLogin(); }
+function logout(){ if(NET.on&&NET.token){ netFetch("/api/logout",{method:"POST"}).catch(()=>{}); NET.token=""; } SESSION=null; showLogin(); }
 
 /* ============ Application ============ */
 function showApp(){
